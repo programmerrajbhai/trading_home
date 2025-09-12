@@ -3,8 +3,6 @@ import 'package:get/get.dart';
 
 import '../controllers/trading_controller.dart';
 import '../utils/enums.dart';
-import '../utils/enums.dart';
-
 
 class TradeControlPanel extends StatelessWidget {
   final TradingController controller = Get.find();

@@ -159,9 +159,22 @@ class _CandlestickPainter extends CustomPainter {
 
       canvas.drawLine(Offset(x + candleWidth / 2, getY(candle.high)), Offset(x + candleWidth / 2, getY(candle.low)), paint..strokeWidth = 1.5);
       canvas.drawRect(Rect.fromLTRB(x, getY(isGreen ? candle.close : candle.open), x + candleWidth, getY(isGreen ? candle.open : candle.close)), paint);
+
+      // +++ নতুন কোড: এখানে টাইমার আঁকা হচ্ছে +++
+      if (realIndex == candles.length - 1) { // যদি এটি সর্বশেষ ক্যান্ডেল হয়
+        final countdownText = "${candleTimeRemaining.toString().padLeft(2, '0')}s";
+        _drawText(
+          canvas,
+          countdownText,
+          Offset(x, getY(candle.high) - 20), // ক্যান্ডেলের উচ্চতার উপরে
+          Colors.white,
+          12,
+          backgroundColor: Colors.black.withOpacity(0.5),
+        );
+      }
     }
 
-    // Draw Right-side UI (Grid, Price, Timer etc.)
+    // Draw Right-side UI (Grid, Price)
     final gridPaint = Paint()..color = Colors.grey[800]!..strokeWidth = 0.5;
     for (int i = 0; i <= 5; i++) {
       final y = size.height * i / 5;
@@ -179,7 +192,7 @@ class _CandlestickPainter extends CustomPainter {
       _drawText(canvas, trade.entryPrice.toStringAsFixed(4), Offset(size.width - 60, tradeY - 8), Colors.white, 12, backgroundColor: tradePaint.color);
     }
 
-    // Draw Current Price Line and Countdown
+    // Draw Current Price Line and Countdown (এই অংশটি এখন শুধুমাত্র দাম দেখাবে)
     if(candles.isNotEmpty) {
       final lastClose = candles.last.close;
       final currentY = getY(lastClose);
@@ -187,8 +200,7 @@ class _CandlestickPainter extends CustomPainter {
       for (double i = 0; i < size.width; i += 10) canvas.drawLine(Offset(i, currentY), Offset(i + 5, currentY), linePaint);
 
       final priceText = lastClose.toStringAsFixed(4);
-      final countdownText = " | 0:${candleTimeRemaining.toString().padLeft(2, '0')}";
-      _drawText(canvas, priceText + countdownText, Offset(size.width - 120, currentY - 8), Colors.white, 12, backgroundColor: linePaint.color);
+      _drawText(canvas, priceText, Offset(size.width - 60, currentY - 8), Colors.white, 12, backgroundColor: linePaint.color);
     }
   }
 

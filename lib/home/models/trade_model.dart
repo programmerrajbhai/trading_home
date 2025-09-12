@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../utils/enums.dart';
 
-
 class Trade {
   final String id;
   final TradeDirection direction;

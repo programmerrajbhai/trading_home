@@ -75,8 +75,14 @@ class TradingController extends GetxController {
     }
   }
 
+  // +++ এই মেথডটি আপডেট করা হয়েছে +++
   void _updateCandleCountdown() {
-    candleTimeRemaining.value = 60 - (DateTime.now().second % 60);
+    if (displayedCandles.isEmpty) return;
+    final lastCandleTimestamp = displayedCandles.last.timestamp;
+    final totalDurationInSeconds = selectedTimeframe.value.minutes * 60;
+    final timeElapsedInSeconds = (DateTime.now().millisecondsSinceEpoch - lastCandleTimestamp) ~/ 1000;
+    final remainingSeconds = totalDurationInSeconds - (timeElapsedInSeconds % totalDurationInSeconds);
+    candleTimeRemaining.value = remainingSeconds.clamp(0, totalDurationInSeconds);
   }
 
   void _startCandleGeneration() {

@@ -36,7 +36,7 @@ class HomePage extends StatelessWidget {
                     candles: controller.displayedCandles,
                     runningTrades: controller.runningTrades,
                     candleTimeRemaining: controller.candleTimeRemaining.value,
-         ),
+                  ),
                 ),
               ),
               TradeControlPanel(),
