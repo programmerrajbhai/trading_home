@@ -13,23 +13,61 @@ class TimeframeSelector extends StatelessWidget {
     return Container(
       height: 40,
       padding: const EdgeInsets.symmetric(horizontal: 8.0),
-      child: Obx(() => SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: Timeframe.values.map((tf) => GestureDetector(
-            onTap: () => controller.changeTimeframe(tf),
-            child: Container(
-              margin: const EdgeInsets.symmetric(horizontal: 4),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-              decoration: BoxDecoration(
-                color: controller.selectedTimeframe.value == tf ? Colors.blue.withOpacity(0.7) : Colors.black.withOpacity(0.3),
-                borderRadius: BorderRadius.circular(20),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          _buildAssetSelector(),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Obx(() => SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: Timeframe.values.map((tf) => GestureDetector(
+                  onTap: () => controller.changeTimeframe(tf),
+                  child: Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: controller.selectedTimeframe.value == tf ? Colors.blue.withOpacity(0.7) : Colors.black.withOpacity(0.3),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(tf.label, style: const TextStyle(color: Colors.white)),
+                  ),
+                )).toList(),
               ),
-              child: Text(tf.label, style: const TextStyle(color: Colors.white)),
-            ),
-          )).toList(),
-        ),
-      )),
+            )),
+          ),
+        ],
+      ),
     );
+  }
+
+  Widget _buildAssetSelector() {
+    return Obx(() => Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(0.3),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<Asset>(
+          value: controller.selectedAsset.value,
+          dropdownColor: Colors.black.withOpacity(0.8),
+          icon: const Icon(Icons.arrow_drop_down, color: Colors.white),
+          style: const TextStyle(color: Colors.white),
+          onChanged: (Asset? newValue) {
+            if (newValue != null) {
+              controller.changeAsset(newValue);
+            }
+          },
+          items: Asset.values.map<DropdownMenuItem<Asset>>((Asset value) {
+            return DropdownMenuItem<Asset>(
+              value: value,
+              child: Text(value.label),
+            );
+          }).toList(),
+        ),
+      ),
+    ));
   }
 }

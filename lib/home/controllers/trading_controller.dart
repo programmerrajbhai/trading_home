@@ -3,7 +3,6 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-
 import '../candle_data.dart';
 import '../chert.dart';
 import '../models/trade_model.dart';
@@ -15,7 +14,8 @@ class TradingController extends GetxController {
   final GlobalKey<CandlestickChartState> chartKey = GlobalKey<CandlestickChartState>();
 
   // --- চার্ট এবং ক্যান্ডেল ডেটা ---
-  final RxList<CandleData> _baseM1Candles = <CandleData>[].obs;
+  final Map<Asset, RxList<CandleData>> _assetCandles = {};
+  final Rx<Asset> selectedAsset = Asset.btcusd.obs;
   final RxList<CandleData> displayedCandles = <CandleData>[].obs;
   final Rx<Timeframe> selectedTimeframe = Timeframe.m1.obs;
   final RxInt candleTimeRemaining = 0.obs;
@@ -38,6 +38,10 @@ class TradingController extends GetxController {
   final RxInt tradeDurationSeconds = 60.obs;
   static const double payoutPercentage = 0.85;
 
+  // New: custom input for trade settings
+  final TextEditingController investmentController = TextEditingController(text: '20.0');
+  final TextEditingController durationController = TextEditingController(text: '60');
+
   List<Trade> get combinedTradeList {
     final list = [...runningTrades, ...tradeHistory];
     list.sort((a, b) => b.entryTime.compareTo(a.entryTime));
@@ -47,7 +51,7 @@ class TradingController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    _generateInitialCandles();
+    _initAssets();
     _startCandleGeneration();
     _aggregateCandles();
     Timer.periodic(const Duration(seconds: 1), (_) {
@@ -56,14 +60,21 @@ class TradingController extends GetxController {
     });
   }
 
-  void _generateInitialCandles() {
+  void _initAssets() {
+    for(final asset in Asset.values) {
+      _assetCandles[asset] = <CandleData>[].obs;
+      _generateInitialCandles(asset);
+    }
+  }
+
+  void _generateInitialCandles(Asset asset) {
     double lastClose = 150.0;
     final now = DateTime.now();
     for (int i = 200; i > 0; i--) {
       final open = lastClose;
       final close = open * (1 + (Random().nextDouble() - 0.5) * 0.01);
       lastClose = close;
-      _baseM1Candles.add(
+      _assetCandles[asset]!.add(
           CandleData(
               timestamp: now.subtract(Duration(minutes: i)).millisecondsSinceEpoch,
               open: open,
@@ -75,7 +86,6 @@ class TradingController extends GetxController {
     }
   }
 
-  // +++ এই মেথডটি আপডেট করা হয়েছে +++
   void _updateCandleCountdown() {
     if (displayedCandles.isEmpty) return;
     final lastCandleTimestamp = displayedCandles.last.timestamp;
@@ -88,15 +98,19 @@ class TradingController extends GetxController {
   void _startCandleGeneration() {
     _candleTimer = Timer.periodic(const Duration(minutes: 1), (timer) {
       _liveUpdateTimer?.cancel();
-      final lastCandle = _baseM1Candles.last;
-      final newCandle = CandleData(
-        timestamp: DateTime.now().millisecondsSinceEpoch,
-        open: lastCandle.close,
-        high: lastCandle.close,
-        low: lastCandle.close,
-        close: lastCandle.close,
-      );
-      _baseM1Candles.add(newCandle);
+      for(final asset in Asset.values) {
+        if (_assetCandles[asset]!.isNotEmpty) {
+          final lastCandle = _assetCandles[asset]!.last;
+          final newCandle = CandleData(
+            timestamp: DateTime.now().millisecondsSinceEpoch,
+            open: lastCandle.close,
+            high: lastCandle.close,
+            low: lastCandle.close,
+            close: lastCandle.close,
+          );
+          _assetCandles[asset]!.add(newCandle);
+        }
+      }
       _startLiveCandleUpdate();
     });
     _startLiveCandleUpdate();
@@ -104,37 +118,60 @@ class TradingController extends GetxController {
 
   void _startLiveCandleUpdate() {
     _liveUpdateTimer = Timer.periodic(const Duration(milliseconds: 500), (timer) {
-      if (_baseM1Candles.isEmpty) return;
-      final lastCandle = _baseM1Candles.last;
-      final newClose = lastCandle.close * (1 + (Random().nextDouble() - 0.5) * 0.001);
-
-      final updatedCandle = CandleData(
-        timestamp: lastCandle.timestamp,
-        open: lastCandle.open,
-        high: max(lastCandle.high, newClose),
-        low: min(lastCandle.low, newClose),
-        close: newClose,
-      );
-      _baseM1Candles[_baseM1Candles.length - 1] = updatedCandle;
+      for (final asset in Asset.values) {
+        if (_assetCandles[asset]!.isEmpty) continue;
+        final lastCandle = _assetCandles[asset]!.last;
+        final newClose = lastCandle.close * (1 + (Random().nextDouble() - 0.5) * 0.001);
+        final updatedCandle = CandleData(
+          timestamp: lastCandle.timestamp,
+          open: lastCandle.open,
+          high: max(lastCandle.high, newClose),
+          low: min(lastCandle.low, newClose),
+          close: newClose,
+        );
+        _assetCandles[asset]![_assetCandles[asset]!.length - 1] = updatedCandle;
+      }
       _aggregateCandles();
     });
   }
 
   void _aggregateCandles() {
-    if (_baseM1Candles.isEmpty) return;
+    final baseCandles = _assetCandles[selectedAsset.value];
+    if (baseCandles == null || baseCandles.isEmpty) {
+      displayedCandles.value = [];
+      return;
+    }
+
     final List<CandleData> aggregated = [];
     final int period = selectedTimeframe.value.minutes;
-    for (int i = 0; i < _baseM1Candles.length; i += period) {
-      final end = min(i + period, _baseM1Candles.length);
-      final chunk = _baseM1Candles.sublist(i, end);
-      if (chunk.isEmpty) continue;
+    final now = DateTime.now();
+    final currentMinute = now.minute;
+    final startOfCurrentPeriodMinute = (currentMinute ~/ period) * period;
+    final startOfCurrentPeriod = DateTime(now.year, now.month, now.day, now.hour, startOfCurrentPeriodMinute);
 
+    final relevantCandles = baseCandles.where((c) => c.timestamp < startOfCurrentPeriod.millisecondsSinceEpoch).toList();
+    final currentCandleChunk = baseCandles.where((c) => c.timestamp >= startOfCurrentPeriod.millisecondsSinceEpoch).toList();
+
+    for (int i = 0; i < relevantCandles.length; i += period) {
+      final chunk = relevantCandles.sublist(i, min(i + period, relevantCandles.length));
+      if (chunk.isNotEmpty) {
+        aggregated.add(CandleData(
+          timestamp: chunk.first.timestamp,
+          open: chunk.first.open,
+          close: chunk.last.close,
+          high: chunk.map((c) => c.high).reduce(max),
+          low: chunk.map((c) => c.low).reduce(min),
+        ));
+      }
+    }
+
+    if (currentCandleChunk.isNotEmpty) {
       aggregated.add(CandleData(
-        timestamp: chunk.first.timestamp,
-        open: chunk.first.open,
-        close: chunk.last.close,
-        high: chunk.map((c) => c.high).reduce(max),
-        low: chunk.map((c) => c.low).reduce(min),
+        timestamp: currentCandleChunk.first.timestamp,
+        open: currentCandleChunk.first.open,
+        close: currentCandleChunk.last.close,
+        high: currentCandleChunk.map((c) => c.high).reduce(max),
+        low: currentCandleChunk.map((c) => c.low).reduce(min),
       ));
     }
     displayedCandles.value = aggregated;
@@ -142,22 +179,35 @@ class TradingController extends GetxController {
   }
 
   void placeTrade(TradeDirection direction) {
-    if (currentBalance < investmentAmount.value) {
+    // Use custom input values if available
+    final double amount = double.tryParse(investmentController.text) ?? 20.0;
+    final int duration = int.tryParse(durationController.text) ?? 60;
+
+    if (currentBalance < amount) {
       Get.snackbar("Error", "Insufficient funds.", backgroundColor: Colors.red, colorText: Colors.white);
       return;
     }
-    if (isLiveAccount.value) liveBalance.value -= investmentAmount.value;
-    else demoBalance.value -= investmentAmount.value;
+    if (isLiveAccount.value) liveBalance.value -= amount;
+    else demoBalance.value -= amount;
 
     final now = DateTime.now();
     runningTrades.add(Trade(
       id: now.millisecondsSinceEpoch.toString(),
       direction: direction,
-      amount: investmentAmount.value,
-      entryPrice: _baseM1Candles.last.close,
+      amount: amount,
+      entryPrice: _assetCandles[selectedAsset.value]!.last.close,
       entryTime: now,
-      expiryTime: now.add(Duration(seconds: tradeDurationSeconds.value)),
+      expiryTime: now.add(Duration(seconds: duration)),
     ));
+  }
+
+  void earlyCloseTrade(Trade trade) {
+    final remainingSeconds = trade.expiryTime.difference(DateTime.now()).inSeconds;
+    if (remainingSeconds <= 20) {
+      Get.snackbar("Error", "Cannot close trade in the last 20 seconds.", backgroundColor: Colors.red, colorText: Colors.white);
+      return;
+    }
+    _settleTrade(trade);
   }
 
   void _checkTradeExpiries() {
@@ -166,7 +216,7 @@ class TradingController extends GetxController {
   }
 
   void _settleTrade(Trade trade) {
-    trade.closePrice = _baseM1Candles.last.close;
+    trade.closePrice = _assetCandles[selectedAsset.value]!.last.close;
     bool isWin = (trade.direction == TradeDirection.up && trade.closePrice! > trade.entryPrice) ||
         (trade.direction == TradeDirection.down && trade.closePrice! < trade.entryPrice);
 
@@ -184,13 +234,19 @@ class TradingController extends GetxController {
     tradeHistory.insert(0, trade);
   }
 
-  // +++ এই মেথডটি আপডেট করা হয়েছে +++
   void _scrollToEnd() {
-    // এখন আমরা ScrollController এর পরিবর্তে GlobalKey ব্যবহার করছি
     chartKey.currentState?.scrollToEnd();
   }
 
-  void changeTimeframe(Timeframe tf) { selectedTimeframe.value = tf; _aggregateCandles(); }
+  void changeAsset(Asset asset) {
+    selectedAsset.value = asset;
+    _aggregateCandles();
+  }
+
+  void changeTimeframe(Timeframe tf) {
+    selectedTimeframe.value = tf;
+    _aggregateCandles();
+  }
   void setInvestmentAmount(double amount) { investmentAmount.value = amount; }
   void setTradeDuration(int seconds) { tradeDurationSeconds.value = seconds; }
   void switchAccount(bool toLive) { isLiveAccount.value = toLive; }
@@ -199,7 +255,6 @@ class TradingController extends GetxController {
   void onClose() {
     _candleTimer?.cancel();
     _liveUpdateTimer?.cancel();
-    // scrollController.dispose(); // <-- এই লাইনটি মুছে ফেলা হয়েছে
     super.onClose();
   }
 }

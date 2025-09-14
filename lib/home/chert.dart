@@ -11,12 +11,14 @@ class CandlestickChart extends StatefulWidget {
   final List<CandleData> candles;
   final List<Trade> runningTrades;
   final int candleTimeRemaining;
+  final Timeframe selectedTimeframe;
 
   const CandlestickChart({
     super.key,
     required this.candles,
     required this.runningTrades,
     required this.candleTimeRemaining,
+    required this.selectedTimeframe,
   });
 
   @override
@@ -99,6 +101,7 @@ class CandlestickChartState extends State<CandlestickChart> {
           horizontalOffset: _horizontalOffset,
           runningTrades: widget.runningTrades,
           candleTimeRemaining: widget.candleTimeRemaining,
+          selectedTimeframe: widget.selectedTimeframe,
         ),
         size: Size.infinite,
       ),
@@ -112,6 +115,7 @@ class _CandlestickPainter extends CustomPainter {
   final double horizontalOffset;
   final List<Trade> runningTrades;
   final int candleTimeRemaining;
+  final Timeframe selectedTimeframe;
 
   _CandlestickPainter({
     required this.candles,
@@ -119,6 +123,7 @@ class _CandlestickPainter extends CustomPainter {
     required this.horizontalOffset,
     required this.runningTrades,
     required this.candleTimeRemaining,
+    required this.selectedTimeframe,
   });
 
   @override
@@ -126,6 +131,7 @@ class _CandlestickPainter extends CustomPainter {
     final double candleWidth = 10.0 * scale;
     final double spacing = 5.0 * scale;
     final double itemWidth = candleWidth + spacing;
+    final double candleDurationMs = selectedTimeframe.minutes * 60 * 1000.0;
 
     // ক্যানভাস ক্লিপ করা হচ্ছে যাতে বাইরে কিছু আঁকা না যায়
     canvas.clipRect(Rect.fromLTWH(0, 0, size.width, size.height));
@@ -184,23 +190,63 @@ class _CandlestickPainter extends CustomPainter {
     }
 
     // Draw Running Trades
-    for(final trade in runningTrades) {
+    for (final trade in runningTrades) {
       final tradeY = getY(trade.entryPrice);
-      if(tradeY < 0 || tradeY > size.height) continue; // শুধু দৃশ্যমান ট্রেড আঁকা হচ্ছে
-      final tradePaint = Paint()..color = trade.direction == TradeDirection.up ? Colors.green : Colors.red ..strokeWidth = 1.5;
-      for (double i = 0; i < size.width; i += 10) canvas.drawLine(Offset(i, tradeY), Offset(i + 5, tradeY), tradePaint);
-      _drawText(canvas, trade.entryPrice.toStringAsFixed(4), Offset(size.width - 60, tradeY - 8), Colors.white, 12, backgroundColor: tradePaint.color);
-    }
+      if (tradeY < 0 || tradeY > size.height) continue;
 
-    // Draw Current Price Line and Countdown (এই অংশটি এখন শুধুমাত্র দাম দেখাবে)
-    if(candles.isNotEmpty) {
-      final lastClose = candles.last.close;
-      final currentY = getY(lastClose);
-      final linePaint = Paint()..color = candles.last.close >= candles.last.open ? Colors.green : Colors.red;
-      for (double i = 0; i < size.width; i += 10) canvas.drawLine(Offset(i, currentY), Offset(i + 5, currentY), linePaint);
+      final tradePaint = Paint()..color = trade.color..strokeWidth = 1.5;
 
-      final priceText = lastClose.toStringAsFixed(4);
-      _drawText(canvas, priceText, Offset(size.width - 60, currentY - 8), Colors.white, 12, backgroundColor: linePaint.color);
+      final startCandleIndex = candles.indexWhere((c) => c.timestamp >= trade.entryTime.millisecondsSinceEpoch);
+
+      // Calculate startX based on the trade's entry time within the starting candle
+      double startX;
+      if (startCandleIndex != -1) {
+        final startCandle = candles[startCandleIndex];
+        final startCandleMs = startCandle.timestamp;
+        final tradeEntryMs = trade.entryTime.millisecondsSinceEpoch;
+        final offsetInMs = tradeEntryMs - startCandleMs;
+        final offsetInPixels = (offsetInMs / candleDurationMs) * itemWidth;
+        startX = (startCandleIndex * itemWidth) + offsetInPixels - horizontalOffset;
+      } else {
+        continue;
+      }
+
+      // Calculate the total duration of the trade in milliseconds
+      final tradeDurationMs = trade.expiryTime.millisecondsSinceEpoch - trade.entryTime.millisecondsSinceEpoch;
+      final tradeLinePixels = (tradeDurationMs / candleDurationMs) * itemWidth;
+      final endX = startX + tradeLinePixels;
+
+      // Draw dashed horizontal line
+      const double dashWidth = 5.0;
+      const double dashSpace = 5.0;
+      double currentX = startX;
+      while (currentX < endX) {
+        canvas.drawLine(Offset(currentX, tradeY), Offset(currentX + dashWidth, tradeY), tradePaint);
+        currentX += dashWidth + dashSpace;
+      }
+
+      // Draw dashed vertical line at expiry
+      final expiryLinePaint = Paint()..color = Colors.white..strokeWidth = 1.5;
+      double currentY = 0;
+      while (currentY < size.height) {
+        canvas.drawLine(Offset(endX, currentY), Offset(endX, currentY + 10), expiryLinePaint);
+        currentY += 20;
+      }
+
+      // Draw timer text
+      final remainingDuration = trade.expiryTime.difference(DateTime.now());
+      final minutes = remainingDuration.inMinutes;
+      final seconds = remainingDuration.inSeconds.remainder(60);
+      final timerText = "${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}";
+      _drawText(
+          canvas,
+          timerText,
+          Offset(endX + 10, tradeY - 20),
+          Colors.white,
+          12,
+          backgroundColor: Colors.black.withOpacity(0.5));
+
+      _drawText(canvas, trade.entryPrice.toStringAsFixed(4), Offset(startX, tradeY - 8), Colors.white, 12, backgroundColor: tradePaint.color);
     }
   }
 

@@ -1,22 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:flutter/services.dart';
 
 import '../controllers/trading_controller.dart';
+import '../models/trade_model.dart';
 import '../utils/enums.dart';
 
 class TradeControlPanel extends StatelessWidget {
   final TradingController controller = Get.find();
-  final investmentSteps = [10.0, 20.0, 50.0, 100.0, 200.0];
-  final durationSteps = [60, 120, 180, 300]; // in seconds
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(16.0),
       child: Column(children: [
-        _buildSelectorRow("Duration:", durationSteps, controller.tradeDurationSeconds, (sec) => controller.setTradeDuration(sec), (sec) => "${sec ~/ 60}m"),
+        _buildCustomInputRow("Investment:", controller.investmentController, (value) {
+          controller.setInvestmentAmount(double.tryParse(value) ?? 0.0);
+        }),
         const SizedBox(height: 10),
-        _buildSelectorRow("Amount:", investmentSteps, controller.investmentAmount, (amount) => controller.setInvestmentAmount(amount), (amount) => "\$${amount.toInt()}"),
+        _buildCustomInputRow("Duration (s):", controller.durationController, (value) {
+          controller.setTradeDuration(int.tryParse(value) ?? 0);
+        }),
         const SizedBox(height: 20),
         Row(children: [
           Expanded(child: _buildTradeButton(TradeDirection.down)),
@@ -27,24 +31,37 @@ class TradeControlPanel extends StatelessWidget {
     );
   }
 
-  Widget _buildSelectorRow<T>(String label, List<T> steps, Rx<T> selectedValue, Function(T) onSelect, String Function(T) toLabel) {
-    return Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-      Text(label, style: const TextStyle(color: Colors.white70)),
-      Obx(() => Row(
-        children: steps.map((value) => GestureDetector(
-          onTap: () => onSelect(value),
-          child: Container(
-            margin: const EdgeInsets.symmetric(horizontal: 4),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: selectedValue.value == value ? Colors.blue.withOpacity(0.7) : Colors.black.withOpacity(0.3),
-              borderRadius: BorderRadius.circular(8),
+  Widget _buildCustomInputRow(String label, TextEditingController textController, Function(String) onChanged) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(label, style: const TextStyle(color: Colors.white70)),
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            child: TextField(
+              controller: textController,
+              keyboardType: TextInputType.number,
+              inputFormatters: <TextInputFormatter>[
+                FilteringTextInputFormatter.digitsOnly,
+              ],
+              style: const TextStyle(color: Colors.white),
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: Colors.black.withOpacity(0.3),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide.none,
+                ),
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              ),
+              onChanged: onChanged,
             ),
-            child: Text(toLabel(value), style: const TextStyle(color: Colors.white)),
           ),
-        )).toList(),
-      )),
-    ]);
+        ),
+      ],
+    );
   }
 
   Widget _buildTradeButton(TradeDirection direction) {

@@ -1,4 +1,3 @@
-
 import 'dart:async';
 
 import 'package:flutter/cupertino.dart';
@@ -43,7 +42,7 @@ class TradeHistoryPopup extends StatelessWidget {
                 // +++ এখন আমরা নতুন combinedTradeList ব্যবহার করবো +++
                 final trades = controller.combinedTradeList;
                 if (trades.isEmpty) {
-                  return const Center(child: Text("No trades yet.", style: TextStyle(color: Colors.white70)));
+                  return const Center(child: Text("No trades yet.", style: const TextStyle(color: Colors.white70)));
                 }
                 return ListView.builder(
                   itemCount: trades.length,
@@ -76,6 +75,8 @@ class _TradeHistoryTile extends StatefulWidget {
 class _TradeHistoryTileState extends State<_TradeHistoryTile> {
   Timer? _timer;
   Duration _remainingTime = Duration.zero;
+
+  final TradingController controller = Get.find();
 
   @override
   void initState() {
@@ -142,6 +143,20 @@ class _TradeHistoryTileState extends State<_TradeHistoryTile> {
                 : _buildInfoColumn("Close", trade.closePrice?.toStringAsFixed(4) ?? '...'), // পুরোনো ট্রেডের জন্য ক্লোজ প্রাইস
             _buildInfoColumn("Time", timeFormat.format(trade.entryTime)),
           ]),
+          // New: Early close button
+          if (trade.status == TradeStatus.running)
+            Padding(
+              padding: const EdgeInsets.only(top: 8.0),
+              child: ElevatedButton(
+                onPressed: () => controller.earlyCloseTrade(trade),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blueAccent,
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size.fromHeight(30),
+                ),
+                child: const Text("Early Close"),
+              ),
+            ),
         ]),
       ),
     );

@@ -1,4 +1,4 @@
-enum TradeDirection { up, down }
+enum TradeDirection { up, down, direction }
 
 enum TradeStatus { running, won, lost, draw }
 
@@ -12,5 +12,17 @@ enum Timeframe {
 
   const Timeframe(this.minutes, this.label);
   final int minutes;
+  final String label;
+}
+
+enum NotificationType { tradeStart, tradeEnd }
+
+// New asset enum
+enum Asset {
+  btcusd('BTC/USD'),
+  ethusd('ETH/USD'),
+  eurusd('EUR/USD');
+
+  const Asset(this.label);
   final String label;
 }
