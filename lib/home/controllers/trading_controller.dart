@@ -9,11 +9,8 @@ import '../models/trade_model.dart';
 import '../utils/enums.dart';
 
 class TradingController extends GetxController {
-  // +++ নতুন কোড +++
-  // চার্টকে বাইরে থেকে নিয়ন্ত্রণ করার জন্য একটি গ্লোবাল কী
   final GlobalKey<CandlestickChartState> chartKey = GlobalKey<CandlestickChartState>();
 
-  // --- চার্ট এবং ক্যান্ডেল ডেটা ---
   final Map<Asset, RxList<CandleData>> _assetCandles = {};
   final Rx<Asset> selectedAsset = Asset.btcusd.obs;
   final RxList<CandleData> displayedCandles = <CandleData>[].obs;
@@ -22,23 +19,17 @@ class TradingController extends GetxController {
   Timer? _candleTimer;
   Timer? _liveUpdateTimer;
 
-  // --- এই লাইনটি মুছে ফেলা হয়েছে ---
-  // final ScrollController scrollController = ScrollController();
-
-  // --- অ্যাকাউন্ট এবং ব্যালেন্স ---
   final RxDouble liveBalance = 1000.00.obs;
   final RxDouble demoBalance = 10000.00.obs;
   final RxBool isLiveAccount = false.obs;
   double get currentBalance => isLiveAccount.value ? liveBalance.value : demoBalance.value;
 
-  // --- ট্রেডিং স্টেট ---
   final RxList<Trade> runningTrades = <Trade>[].obs;
   final RxList<Trade> tradeHistory = <Trade>[].obs;
   final RxDouble investmentAmount = 20.0.obs;
   final RxInt tradeDurationSeconds = 60.obs;
   static const double payoutPercentage = 0.85;
 
-  // New: custom input for trade settings
   final TextEditingController investmentController = TextEditingController(text: '20.0');
   final TextEditingController durationController = TextEditingController(text: '60');
 
@@ -179,7 +170,6 @@ class TradingController extends GetxController {
   }
 
   void placeTrade(TradeDirection direction) {
-    // Use custom input values if available
     final double amount = double.tryParse(investmentController.text) ?? 20.0;
     final int duration = int.tryParse(durationController.text) ?? 60;
 
