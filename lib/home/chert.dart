@@ -2,11 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:trading_home/home/utils/enums.dart';
 import 'dart:math' show max, min;
 
-
 import 'candle_data.dart';
 import 'models/trade_model.dart';
 
-// key ব্যবহারের জন্য StatefulWidget এর নাম পরিবর্তন করা হয়েছে
 class CandlestickChart extends StatefulWidget {
   final List<CandleData> candles;
   final List<Trade> runningTrades;
@@ -26,18 +24,16 @@ class CandlestickChart extends StatefulWidget {
 }
 
 class CandlestickChartState extends State<CandlestickChart> {
-  double _scale = 1.0; // Zoom level
-  double _horizontalOffset = 0.0; // Pan position
+  double _scale = 1.0;
+  double _horizontalOffset = 0.0;
   Offset? _dragStartPosition;
 
   @override
   void initState() {
     super.initState();
-    // চার্ট শুরুতেই শেষ প্রান্তে দেখাবে
     WidgetsBinding.instance.addPostFrameCallback((_) => scrollToEnd(animate: false));
   }
 
-  // নতুন ক্যান্ডেল আসলে চার্টকে শেষ প্রান্তে নিয়ে যাওয়ার জন্য
   @override
   void didUpdateWidget(covariant CandlestickChart oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -46,16 +42,12 @@ class CandlestickChartState extends State<CandlestickChart> {
     }
   }
 
-  // বাইরে থেকে কল করার জন্য পাবলিক মেথড
   void scrollToEnd({bool animate = true}) {
     if (!mounted || context.size == null) return;
-
     final double candleWidth = 10.0 * _scale;
     final double spacing = 5.0 * _scale;
     final double contentWidth = widget.candles.length * (candleWidth + spacing);
     final double maxOffset = contentWidth - context.size!.width;
-
-    // অ্যানিমেশনসহ স্ক্রল করার ব্যবস্থা পরে যোগ করা যেতে পারে
     setState(() {
       _horizontalOffset = maxOffset.clamp(0.0, double.infinity);
     });
@@ -73,18 +65,13 @@ class CandlestickChartState extends State<CandlestickChart> {
       },
       onScaleUpdate: (details) {
         setState(() {
-          // Horizontal Pan (1 finger drag)
           if (details.scale == 1.0 && _dragStartPosition != null) {
             final dx = details.localFocalPoint.dx - _dragStartPosition!.dx;
             _horizontalOffset -= dx;
             _dragStartPosition = details.localFocalPoint;
-          }
-          // Scale (pinch zoom)
-          else if (details.scale != 1.0) {
+          } else if (details.scale != 1.0) {
             final newScale = (_scale * details.scale).clamp(0.2, 5.0);
             final focalPoint = details.localFocalPoint.dx;
-
-            // Zoom in/out from the focal point
             final worldFocalX = (_horizontalOffset + focalPoint) / _scale;
             _horizontalOffset = (worldFocalX * newScale) - focalPoint;
             _scale = newScale;
@@ -133,17 +120,14 @@ class _CandlestickPainter extends CustomPainter {
     final double itemWidth = candleWidth + spacing;
     final double candleDurationMs = selectedTimeframe.minutes * 60 * 1000.0;
 
-    // ক্যানভাস ক্লিপ করা হচ্ছে যাতে বাইরে কিছু আঁকা না যায়
     canvas.clipRect(Rect.fromLTWH(0, 0, size.width, size.height));
 
-    // শুধুমাত্র দৃশ্যমান ক্যান্ডেলগুলো বের করা হচ্ছে
     final int firstVisibleIndex = (horizontalOffset / itemWidth).floor().clamp(0, candles.length);
     final int lastVisibleIndex = ((horizontalOffset + size.width) / itemWidth).ceil().clamp(0, candles.length);
 
     if (firstVisibleIndex >= lastVisibleIndex) return;
 
     final visibleCandles = candles.getRange(firstVisibleIndex, lastVisibleIndex).toList();
-
     if (visibleCandles.isEmpty) return;
 
     final double minY = visibleCandles.map((c) => c.low).reduce(min) * 0.995;
@@ -160,23 +144,15 @@ class _CandlestickPainter extends CustomPainter {
       final realIndex = firstVisibleIndex + i;
       final double x = (realIndex * itemWidth) - horizontalOffset;
 
-      final isGreen = candle.close >= candle.open;
-      final paint = Paint()..color = isGreen ? Colors.green : Colors.red;
+      final isBullish = candle.close >= candle.open;
+      final paint = Paint()..color = isBullish ? Colors.green : Colors.red;
 
       canvas.drawLine(Offset(x + candleWidth / 2, getY(candle.high)), Offset(x + candleWidth / 2, getY(candle.low)), paint..strokeWidth = 1.5);
-      canvas.drawRect(Rect.fromLTRB(x, getY(isGreen ? candle.close : candle.open), x + candleWidth, getY(isGreen ? candle.open : candle.close)), paint);
+      canvas.drawRect(Rect.fromLTRB(x, getY(isBullish ? candle.close : candle.open), x + candleWidth, getY(isBullish ? candle.open : candle.close)), paint);
 
-      // +++ নতুন কোড: এখানে টাইমার আঁকা হচ্ছে +++
-      if (realIndex == candles.length - 1) { // যদি এটি সর্বশেষ ক্যান্ডেল হয়
+      if (realIndex == candles.length - 1) {
         final countdownText = "${candleTimeRemaining.toString().padLeft(2, '0')}s";
-        _drawText(
-          canvas,
-          countdownText,
-          Offset(x, getY(candle.high) - 20), // ক্যান্ডেলের উচ্চতার উপরে
-          Colors.white,
-          12,
-          backgroundColor: Colors.black.withOpacity(0.5),
-        );
+        _drawText(canvas, countdownText, Offset(x + candleWidth / 2 - 15, getY(candle.high) - 20), Colors.white, 12, backgroundColor: Colors.black.withOpacity(0.5));
       }
     }
 
@@ -190,63 +166,70 @@ class _CandlestickPainter extends CustomPainter {
     }
 
     // Draw Running Trades
-    for (final trade in runningTrades) {
-      final tradeY = getY(trade.entryPrice);
-      if (tradeY < 0 || tradeY > size.height) continue;
+    if (candles.isNotEmpty) {
+      final double lastCandlePrice = candles.last.close;
 
-      final tradePaint = Paint()..color = trade.color..strokeWidth = 1.5;
+      for (final trade in runningTrades) {
+        final tradeY = getY(trade.entryPrice);
+        if (tradeY < 0 || tradeY > size.height) continue;
 
-      final startCandleIndex = candles.indexWhere((c) => c.timestamp >= trade.entryTime.millisecondsSinceEpoch);
+        final startCandleIndex = candles.indexWhere((c) => c.timestamp >= trade.entryTime.millisecondsSinceEpoch);
+        double startX;
+        if (startCandleIndex != -1) {
+          final startCandle = candles[startCandleIndex];
+          final startCandleMs = startCandle.timestamp;
+          final tradeEntryMs = trade.entryTime.millisecondsSinceEpoch;
+          final offsetInMs = tradeEntryMs - startCandleMs;
+          final offsetInPixels = (offsetInMs / candleDurationMs) * itemWidth;
+          startX = (startCandleIndex * itemWidth) + offsetInPixels - horizontalOffset;
+        } else {
+          continue;
+        }
 
-      // Calculate startX based on the trade's entry time within the starting candle
-      double startX;
-      if (startCandleIndex != -1) {
-        final startCandle = candles[startCandleIndex];
-        final startCandleMs = startCandle.timestamp;
-        final tradeEntryMs = trade.entryTime.millisecondsSinceEpoch;
-        final offsetInMs = tradeEntryMs - startCandleMs;
-        final offsetInPixels = (offsetInMs / candleDurationMs) * itemWidth;
-        startX = (startCandleIndex * itemWidth) + offsetInPixels - horizontalOffset;
-      } else {
-        continue;
+        final tradeDurationMs = trade.expiryTime.millisecondsSinceEpoch - trade.entryTime.millisecondsSinceEpoch;
+        final tradeLinePixels = (tradeDurationMs / candleDurationMs) * itemWidth;
+        final endX = startX + tradeLinePixels;
+
+        // Draw entry price line across the whole chart
+        final entryPriceLinePaint = Paint()
+          ..color = trade.color
+          ..strokeWidth = 1.0;
+        _drawDashedLine(canvas, Offset(0, tradeY), Offset(size.width, tradeY), entryPriceLinePaint, 5, 5);
+
+        // Draw profit/loss area
+        final currentPriceY = getY(lastCandlePrice);
+        final isProfit = (trade.direction == TradeDirection.up && lastCandlePrice > trade.entryPrice) || (trade.direction == TradeDirection.down && lastCandlePrice < trade.entryPrice);
+        final profitLossPaint = Paint()..color = (isProfit ? Colors.green : Colors.red).withOpacity(0.2);
+        canvas.drawRect(Rect.fromLTRB(startX, tradeY, min(endX, size.width), currentPriceY), profitLossPaint);
+
+        // Draw the duration line from entry to expiry
+        final durationLinePaint = Paint()
+          ..color = trade.color
+          ..strokeWidth = 2.0;
+        _drawDashedLine(canvas, Offset(startX, tradeY), Offset(endX, tradeY), durationLinePaint, 5, 5);
+
+        // Draw start arrow
+        final Path path = Path();
+        path.moveTo(startX, tradeY);
+        path.lineTo(startX + (trade.direction == TradeDirection.up ? 10 : -10), tradeY - (trade.direction == TradeDirection.up ? 10 : -10));
+        path.lineTo(startX + (trade.direction == TradeDirection.up ? 10 : -10), tradeY + (trade.direction == TradeDirection.up ? 10 : -10));
+        path.close();
+        final arrowPaint = Paint()..color = trade.color;
+        canvas.drawPath(path, arrowPaint);
+
+        // Draw vertical expiry line
+        final expiryPaint = Paint()..color = Colors.white..strokeWidth = 2.0;
+        _drawDashedLine(canvas, Offset(endX, 0), Offset(endX, size.height), expiryPaint, 10, 5);
+
+        // Draw timer text
+        final remainingDuration = trade.expiryTime.difference(DateTime.now());
+        final minutes = remainingDuration.inMinutes;
+        final seconds = remainingDuration.inSeconds.remainder(60);
+        final timerText = "${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}";
+        _drawText(canvas, timerText, Offset(endX + 5, 20), Colors.white, 12, backgroundColor: Colors.black.withOpacity(0.5));
+
+        _drawText(canvas, trade.entryPrice.toStringAsFixed(4), Offset(10, tradeY - 8), Colors.white, 12, backgroundColor: trade.color);
       }
-
-      // Calculate the total duration of the trade in milliseconds
-      final tradeDurationMs = trade.expiryTime.millisecondsSinceEpoch - trade.entryTime.millisecondsSinceEpoch;
-      final tradeLinePixels = (tradeDurationMs / candleDurationMs) * itemWidth;
-      final endX = startX + tradeLinePixels;
-
-      // Draw dashed horizontal line
-      const double dashWidth = 5.0;
-      const double dashSpace = 5.0;
-      double currentX = startX;
-      while (currentX < endX) {
-        canvas.drawLine(Offset(currentX, tradeY), Offset(currentX + dashWidth, tradeY), tradePaint);
-        currentX += dashWidth + dashSpace;
-      }
-
-      // Draw dashed vertical line at expiry
-      final expiryLinePaint = Paint()..color = Colors.white..strokeWidth = 1.5;
-      double currentY = 0;
-      while (currentY < size.height) {
-        canvas.drawLine(Offset(endX, currentY), Offset(endX, currentY + 10), expiryLinePaint);
-        currentY += 20;
-      }
-
-      // Draw timer text
-      final remainingDuration = trade.expiryTime.difference(DateTime.now());
-      final minutes = remainingDuration.inMinutes;
-      final seconds = remainingDuration.inSeconds.remainder(60);
-      final timerText = "${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}";
-      _drawText(
-          canvas,
-          timerText,
-          Offset(endX + 10, tradeY - 20),
-          Colors.white,
-          12,
-          backgroundColor: Colors.black.withOpacity(0.5));
-
-      _drawText(canvas, trade.entryPrice.toStringAsFixed(4), Offset(startX, tradeY - 8), Colors.white, 12, backgroundColor: tradePaint.color);
     }
   }
 
@@ -256,6 +239,16 @@ class _CandlestickPainter extends CustomPainter {
         textDirection: TextDirection.ltr
     )..layout();
     textPainter.paint(canvas, position);
+  }
+
+  void _drawDashedLine(Canvas canvas, Offset start, Offset end, Paint paint, double dashWidth, double dashSpace) {
+    double distance = (end - start).distance;
+    final double dashCount = (distance / (dashWidth + dashSpace)).floor().toDouble();
+    for (int i = 0; i < dashCount; i++) {
+      final startDash = start + (end - start) * (i * (dashWidth + dashSpace)) / distance;
+      final endDash = start + (end - start) * (i * (dashWidth + dashSpace) + dashWidth) / distance;
+      canvas.drawLine(startDash, endDash, paint);
+    }
   }
 
   @override
