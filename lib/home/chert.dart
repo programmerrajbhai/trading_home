@@ -308,7 +308,7 @@ class _CandlestickPainter extends CustomPainter {
     )..layout();
     textPainter.paint(canvas, position);
   }
-
+///
   void _drawDashedLine(Canvas canvas, Offset start, Offset end, Paint paint, double dashWidth, double dashSpace) {
     double distance = (end - start).distance;
     final double dashCount = (distance / (dashWidth + dashSpace)).floor().toDouble();
