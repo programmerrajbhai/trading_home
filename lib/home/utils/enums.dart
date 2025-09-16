@@ -15,14 +15,41 @@ enum Timeframe {
   final String label;
 }
 
+// চার্টের ধরনের জন্য enum
+enum ChartType { candlestick, line, bar }
+
+// এখানে Asset-এর তালিকা আপডেট করা হয়েছে
 enum Asset {
-  btcusd('BTC/USD'),
-  ethusd('ETH/USD'),
-  eurusd('EUR/USD');
+  // Currency Pairs
+  eurusd('EUR/USD OTC'),
+  gbpusd('GBP/USD OTC'),
+  usdjpy('USD/JPY OTC'),
+  usdbdt('USD/BDT OTC'),
+  eurbdt('EUR/BDT OTC'),
+  gbpbdt('GBP/BDT OTC'),
+  audusd('AUD/USD OTC'),
+  usdcad('USD/CAD OTC'),
+  usdchf('USD/CHF OTC'),
+
+  // Commodities
+  gold('Gold OTC'),
+  silver('Silver OTC'),
+  oil('Oil OTC'),
+
+  // Bangladeshi Stocks
+  dsex('DSEX Index OTC'),
+  beximco('Beximco Ltd OTC'),
+  grameenphone('Grameenphone OTC'),
+  square('Square Pharma OTC'),
+  bashundhara('Bashundhara Group OTC'),
+
+  // International Stocks & Groups
+  emaar('Emaar Properties OTC'),
+  emirates('Emirates Group OTC'),
+  apple('Apple OTC'),
+  tesla('Tesla OTC'),
+  amazon('Amazon OTC');
 
   const Asset(this.label);
   final String label;
 }
-
-// নতুন এই enum-টি যোগ করা হয়েছে
-enum ChartType { candlestick, line, bar }

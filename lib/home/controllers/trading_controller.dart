@@ -12,7 +12,12 @@ class TradingController extends GetxController {
   final GlobalKey<CandlestickChartState> chartKey = GlobalKey<CandlestickChartState>();
 
   final Map<Asset, RxList<CandleData>> _assetCandles = {};
-  final Rx<Asset> selectedAsset = Asset.btcusd.obs;
+
+
+
+  // *** এখানেই পরিবর্তনটি করা হয়েছে ***
+  final Rx<Asset> selectedAsset = Asset.eurusd.obs; // ডিফল্ট অ্যাসেট পরিবর্তন করা হয়েছে
+
   final RxList<CandleData> displayedCandles = <CandleData>[].obs;
   final Rx<Timeframe> selectedTimeframe = Timeframe.m1.obs;
   final RxInt candleTimeRemaining = 0.obs;
@@ -33,7 +38,6 @@ class TradingController extends GetxController {
   final TextEditingController investmentController = TextEditingController(text: '20.0');
   final TextEditingController durationController = TextEditingController(text: '60');
 
-  // নতুন ভেরিয়েবল
   final Rx<ChartType> selectedChartType = ChartType.candlestick.obs;
 
   List<Trade> get combinedTradeList {
@@ -62,7 +66,7 @@ class TradingController extends GetxController {
   }
 
   void _generateInitialCandles(Asset asset) {
-    double lastClose = 150.0;
+    double lastClose = 150.0 + Random().nextDouble() * 50; // Start price varies slightly per asset
     final now = DateTime.now();
     for (int i = 200; i > 0; i--) {
       final open = lastClose;
@@ -172,6 +176,7 @@ class TradingController extends GetxController {
     _scrollToEnd();
   }
 
+
   void placeTrade(TradeDirection direction) {
     final double amount = double.tryParse(investmentController.text) ?? 20.0;
     final int duration = int.tryParse(durationController.text) ?? 60;
@@ -255,7 +260,6 @@ class TradingController extends GetxController {
     _aggregateCandles();
   }
 
-  // নতুন মেথড
   void changeChartType(ChartType chartType) {
     selectedChartType.value = chartType;
   }
