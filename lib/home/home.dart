@@ -1,10 +1,11 @@
+// lib/home/home.dart
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:trading_home/home/ui/trade_history_screen.dart';
 import 'package:trading_home/home/widgets/account_popup.dart';
-import 'package:trading_home/home/widgets/timeframe_selector.dart';
-import 'package:trading_home/home/widgets/trade_control_panel.dart';
-import 'package:trading_home/home/widgets/trade_history_popup.dart';
-
+import 'widgets/timeframe_selector.dart';
+import 'widgets/trade_control_panel.dart';
 import 'chert.dart';
 import 'controllers/trading_controller.dart';
 
@@ -37,7 +38,7 @@ class HomePage extends StatelessWidget {
                     runningTrades: controller.runningTrades,
                     candleTimeRemaining: controller.candleTimeRemaining.value,
                     selectedTimeframe: controller.selectedTimeframe.value,
-                    selectedChartType: controller.selectedChartType.value, // এই লাইনটি যোগ করা হয়েছে
+                    selectedChartType: controller.selectedChartType.value,
                   ),
                 ),
               ),
@@ -72,13 +73,27 @@ class TopBar extends StatelessWidget {
               ),
               child: Obx(() => Row(
                 children: [
-                  Icon(controller.isLiveAccount.value ? Icons.monetization_on : Icons.videogame_asset, color: Colors.greenAccent),
+                  Icon(
+                      controller.isLiveAccount.value
+                          ? Icons.monetization_on
+                          : Icons.videogame_asset,
+                      color: Colors.greenAccent),
                   const SizedBox(width: 8),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(controller.isLiveAccount.value ? "Live Account" : "Demo Account", style: const TextStyle(color: Colors.white, fontSize: 12)),
-                      Text("\$${controller.currentBalance.toStringAsFixed(2)}", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+                      Text(
+                          controller.isLiveAccount.value
+                              ? "Live Account"
+                              : "Demo Account",
+                          style: const TextStyle(
+                              color: Colors.white, fontSize: 12)),
+                      Text(
+                          "\$${controller.currentBalance.toStringAsFixed(2)}",
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14)),
                     ],
                   ),
                   const Icon(Icons.arrow_drop_down, color: Colors.white),
@@ -88,7 +103,7 @@ class TopBar extends StatelessWidget {
           ),
           IconButton(
             icon: const Icon(Icons.history, color: Colors.white),
-            onPressed: () => Get.dialog(TradeHistoryPopup()),
+            onPressed: () => Get.to(() => const TradeHistoryScreen()),
           ),
         ],
       ),
