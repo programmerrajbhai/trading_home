@@ -37,6 +37,7 @@ class HomePage extends StatelessWidget {
                     runningTrades: controller.runningTrades,
                     candleTimeRemaining: controller.candleTimeRemaining.value,
                     selectedTimeframe: controller.selectedTimeframe.value,
+                    selectedChartType: controller.selectedChartType.value, // এই লাইনটি যোগ করা হয়েছে
                   ),
                 ),
               ),

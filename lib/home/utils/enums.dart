@@ -23,3 +23,6 @@ enum Asset {
   const Asset(this.label);
   final String label;
 }
+
+// নতুন এই enum-টি যোগ করা হয়েছে
+enum ChartType { candlestick, line, bar }

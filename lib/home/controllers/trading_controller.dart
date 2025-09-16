@@ -33,6 +33,9 @@ class TradingController extends GetxController {
   final TextEditingController investmentController = TextEditingController(text: '20.0');
   final TextEditingController durationController = TextEditingController(text: '60');
 
+  // নতুন ভেরিয়েবল
+  final Rx<ChartType> selectedChartType = ChartType.candlestick.obs;
+
   List<Trade> get combinedTradeList {
     final list = [...runningTrades, ...tradeHistory];
     list.sort((a, b) => b.entryTime.compareTo(a.entryTime));
@@ -251,6 +254,12 @@ class TradingController extends GetxController {
     selectedTimeframe.value = tf;
     _aggregateCandles();
   }
+
+  // নতুন মেথড
+  void changeChartType(ChartType chartType) {
+    selectedChartType.value = chartType;
+  }
+
   void setInvestmentAmount(double amount) { investmentAmount.value = amount; }
   void setTradeDuration(int seconds) { tradeDurationSeconds.value = seconds; }
   void switchAccount(bool toLive) { isLiveAccount.value = toLive; }

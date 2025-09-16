@@ -12,6 +12,7 @@ class CandlestickChart extends StatefulWidget {
   final List<Trade> runningTrades;
   final int candleTimeRemaining;
   final Timeframe selectedTimeframe;
+  final ChartType selectedChartType; // নতুন প্যারামিটার
 
   const CandlestickChart({
     super.key,
@@ -19,6 +20,7 @@ class CandlestickChart extends StatefulWidget {
     required this.runningTrades,
     required this.candleTimeRemaining,
     required this.selectedTimeframe,
+    required this.selectedChartType, // নতুন প্যারামিটার
   });
 
   @override
@@ -91,6 +93,7 @@ class CandlestickChartState extends State<CandlestickChart> {
           runningTrades: widget.runningTrades,
           candleTimeRemaining: widget.candleTimeRemaining,
           selectedTimeframe: widget.selectedTimeframe,
+          chartType: widget.selectedChartType, // নতুন প্যারামিটার পাস করুন
         ),
         size: Size.infinite,
       ),
@@ -105,6 +108,7 @@ class _CandlestickPainter extends CustomPainter {
   final List<Trade> runningTrades;
   final int candleTimeRemaining;
   final Timeframe selectedTimeframe;
+  final ChartType chartType; // নতুন প্রপার্টি
 
   _CandlestickPainter({
     required this.candles,
@@ -113,6 +117,7 @@ class _CandlestickPainter extends CustomPainter {
     required this.runningTrades,
     required this.candleTimeRemaining,
     required this.selectedTimeframe,
+    required this.chartType, // নতুন প্রপার্টি
   });
 
   @override
@@ -141,24 +146,20 @@ class _CandlestickPainter extends CustomPainter {
       return size.height - ((price - minY) / (maxY - minY)) * size.height;
     }
 
-    // Draw Candles
-    for (int i = 0; i < visibleCandles.length; i++) {
-      final candle = visibleCandles[i];
-      final realIndex = firstVisibleIndex + i;
-      final double x = (realIndex * itemWidth) - horizontalOffset;
-
-      final isBullish = candle.close >= candle.open;
-      final paint = Paint()..color = isBullish ? Colors.green : Colors.red;
-
-      canvas.drawLine(
-        Offset(x + candleWidth / 2, getY(candle.high)),
-        Offset(x + candleWidth / 2, getY(candle.low)),
-        paint..strokeWidth = 1.5,
-      );
-      canvas.drawRect(
-        Rect.fromLTRB(x, getY(isBullish ? candle.close : candle.open), x + candleWidth, getY(isBullish ? candle.open : candle.close)),
-        paint,
-      );
+    // চার্টের ধরন অনুযায়ী আঁকার জন্য switch স্টেটমেন্ট ব্যবহার করুন
+    switch (chartType) {
+      case ChartType.candlestick:
+        _drawCandlestickChart(canvas, size, visibleCandles, firstVisibleIndex,
+            getY, candleWidth, itemWidth);
+        break;
+      case ChartType.line:
+        _drawLineChart(canvas, size, visibleCandles, firstVisibleIndex, getY,
+            itemWidth);
+        break;
+      case ChartType.bar:
+        _drawBarChart(canvas, size, visibleCandles, firstVisibleIndex, getY,
+            candleWidth, itemWidth);
+        break;
     }
 
     // Draw Current Price Line
@@ -203,6 +204,103 @@ class _CandlestickPainter extends CustomPainter {
 
     // Draw Running Trades
     _drawRunningTrades(canvas, size, getY, priceLabelWidth, itemWidth, candleDurationMs);
+  }
+
+  void _drawCandlestickChart(
+      Canvas canvas,
+      Size size,
+      List<CandleData> visibleCandles,
+      int firstVisibleIndex,
+      Function getY,
+      double candleWidth,
+      double itemWidth) {
+    for (int i = 0; i < visibleCandles.length; i++) {
+      final candle = visibleCandles[i];
+      final realIndex = firstVisibleIndex + i;
+      final double x = (realIndex * itemWidth) - horizontalOffset;
+
+      final isBullish = candle.close >= candle.open;
+      final paint = Paint()..color = isBullish ? Colors.green : Colors.red;
+
+      canvas.drawLine(
+        Offset(x + candleWidth / 2, getY(candle.high)),
+        Offset(x + candleWidth / 2, getY(candle.low)),
+        paint..strokeWidth = 1.5,
+      );
+      canvas.drawRect(
+        Rect.fromLTRB(
+            x,
+            getY(isBullish ? candle.close : candle.open),
+            x + candleWidth,
+            getY(isBullish ? candle.open : candle.close)),
+        paint,
+      );
+    }
+  }
+
+  void _drawLineChart(Canvas canvas, Size size, List<CandleData> visibleCandles,
+      int firstVisibleIndex, Function getY, double itemWidth) {
+    final linePaint = Paint()
+      ..color = Colors.blue
+      ..strokeWidth = 2.0
+      ..style = PaintingStyle.stroke;
+
+    final path = Path();
+    for (int i = 0; i < visibleCandles.length; i++) {
+      final candle = visibleCandles[i];
+      final realIndex = firstVisibleIndex + i;
+      final double x =
+          (realIndex * itemWidth) - horizontalOffset + (itemWidth / 4);
+      final double y = getY(candle.close);
+
+      if (i == 0) {
+        path.moveTo(x, y);
+      } else {
+        path.lineTo(x, y);
+      }
+    }
+    canvas.drawPath(path, linePaint);
+  }
+
+  void _drawBarChart(
+      Canvas canvas,
+      Size size,
+      List<CandleData> visibleCandles,
+      int firstVisibleIndex,
+      Function getY,
+      double candleWidth,
+      double itemWidth) {
+    for (int i = 0; i < visibleCandles.length; i++) {
+      final candle = visibleCandles[i];
+      final realIndex = firstVisibleIndex + i;
+      final double x = (realIndex * itemWidth) - horizontalOffset;
+
+      final isBullish = candle.close >= candle.open;
+      final paint = Paint()
+        ..color = isBullish ? Colors.green : Colors.red
+        ..strokeWidth = 1.5;
+
+      // High-low line
+      canvas.drawLine(
+        Offset(x + candleWidth / 2, getY(candle.high)),
+        Offset(x + candleWidth / 2, getY(candle.low)),
+        paint,
+      );
+
+      // Open tick
+      canvas.drawLine(
+        Offset(x, getY(candle.open)),
+        Offset(x + candleWidth / 2, getY(candle.open)),
+        paint,
+      );
+
+      // Close tick
+      canvas.drawLine(
+        Offset(x + candleWidth / 2, getY(candle.close)),
+        Offset(x + candleWidth, getY(candle.close)),
+        paint,
+      );
+    }
   }
 
   void _drawPriceAxis(Canvas canvas, Size size, double minY, double maxY, Function getY, double priceLabelWidth) {
@@ -308,7 +406,7 @@ class _CandlestickPainter extends CustomPainter {
     )..layout();
     textPainter.paint(canvas, position);
   }
-///
+  ///
   void _drawDashedLine(Canvas canvas, Offset start, Offset end, Paint paint, double dashWidth, double dashSpace) {
     double distance = (end - start).distance;
     final double dashCount = (distance / (dashWidth + dashSpace)).floor().toDouble();

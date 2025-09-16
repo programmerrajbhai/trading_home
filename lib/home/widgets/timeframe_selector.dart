@@ -18,6 +18,8 @@ class TimeframeSelector extends StatelessWidget {
         children: [
           _buildAssetSelector(),
           const SizedBox(width: 10),
+          _buildChartTypeSelector(), // নতুন চার্ট টাইপ সিলেক্টর
+          const SizedBox(width: 10),
           Expanded(
             child: Obx(() => SingleChildScrollView(
               scrollDirection: Axis.horizontal,
@@ -64,6 +66,38 @@ class TimeframeSelector extends StatelessWidget {
             return DropdownMenuItem<Asset>(
               value: value,
               child: Text(value.label),
+            );
+          }).toList(),
+        ),
+      ),
+    ));
+  }
+
+  // নতুন এই উইজেটটি যোগ করা হয়েছে
+  Widget _buildChartTypeSelector() {
+    return Obx(() => Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(0.3),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<ChartType>(
+          value: controller.selectedChartType.value,
+          dropdownColor: Colors.black.withOpacity(0.8),
+          icon: const Icon(Icons.show_chart, color: Colors.white),
+          style: const TextStyle(color: Colors.white),
+          onChanged: (ChartType? newValue) {
+            if (newValue != null) {
+              controller.changeChartType(newValue);
+            }
+          },
+          items: ChartType.values
+              .map<DropdownMenuItem<ChartType>>((ChartType value) {
+            return DropdownMenuItem<ChartType>(
+              value: value,
+              child: Text(value.name[0].toUpperCase() +
+                  value.name.substring(1)),
             );
           }).toList(),
         ),
