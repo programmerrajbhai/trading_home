@@ -1,4 +1,4 @@
-enum TradeDirection { up, down, direction }
+enum TradeDirection { up, down }
 
 enum TradeStatus { running, won, lost, draw }
 
@@ -15,9 +15,6 @@ enum Timeframe {
   final String label;
 }
 
-enum NotificationType { tradeStart, tradeEnd }
-
-// New asset enum
 enum Asset {
   btcusd('BTC/USD'),
   ethusd('ETH/USD'),

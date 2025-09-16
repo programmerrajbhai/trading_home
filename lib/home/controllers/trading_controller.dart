@@ -189,6 +189,7 @@ class TradingController extends GetxController {
       entryTime: now,
       expiryTime: now.add(Duration(seconds: duration)),
     ));
+    Get.snackbar("Trade Placed", "Your trade for \$${amount.toStringAsFixed(2)} has been placed.", backgroundColor: Colors.green, colorText: Colors.white);
   }
 
   void earlyCloseTrade(Trade trade) {
@@ -210,18 +211,31 @@ class TradingController extends GetxController {
     bool isWin = (trade.direction == TradeDirection.up && trade.closePrice! > trade.entryPrice) ||
         (trade.direction == TradeDirection.down && trade.closePrice! < trade.entryPrice);
 
+    String message;
+    Color color;
+
     if (trade.closePrice == trade.entryPrice) {
       trade.status = TradeStatus.draw;
       if (isLiveAccount.value) liveBalance.value += trade.amount; else demoBalance.value += trade.amount;
+      message = "Trade ended: Draw! Your investment was returned.";
+      color = Colors.grey;
+
+
+
     } else if (isWin) {
       trade.status = TradeStatus.won;
       final payout = trade.amount + (trade.amount * payoutPercentage);
       if (isLiveAccount.value) liveBalance.value += payout; else demoBalance.value += payout;
+      message = "Trade ended: Won! You won \$${(trade.amount * payoutPercentage).toStringAsFixed(2)}.";
+      color = Colors.green;
     } else {
       trade.status = TradeStatus.lost;
+      message = "Trade ended: Lost. Better luck next time.";
+      color = Colors.red;
     }
     runningTrades.remove(trade);
     tradeHistory.insert(0, trade);
+    Get.snackbar("Trade Result", message, backgroundColor: color, colorText: Colors.white);
   }
 
   void _scrollToEnd() {
