@@ -398,5 +398,6 @@ extension on LeaderboardUser {
     'name': name,
     'balance': balance,
     'pnl': pnl.value,
+    ///
   };
 }
