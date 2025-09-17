@@ -12,41 +12,43 @@ class LeaderboardScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final TradingController controller = Get.find();
 
-    controller.sortLeaderboard();
-
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text("Leaderboard (Demo)"),
-        backgroundColor: const Color(0xFF061B32),
-      ),
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFF0E1012), Color(0xFF061B32)],
-          ),
+    // রিয়েল-টাইম আপডেটের জন্য Obx ব্যবহার করে লিডারবোর্ড সর্ট করা হয়েছে
+    return Obx(() {
+      controller.sortLeaderboard();
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text("Leaderboard (Demo)"),
+          backgroundColor: const Color(0xFF061B32),
         ),
-        child: Obx(() {
-          if (controller.leaderboardUsers.isEmpty) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          return ListView.builder(
-            padding: const EdgeInsets.all(12),
-            itemCount: controller.leaderboardUsers.length,
-            itemBuilder: (context, index) {
-              final user = controller.leaderboardUsers[index];
-              final isCurrentUser = user.id == 'user_1';
-              return _LeaderboardTile(
-                user: user,
-                rank: index + 1,
-                isCurrentUser: isCurrentUser,
-              );
-            },
-          );
-        }),
-      ),
-    );
+        body: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFF0E1012), Color(0xFF061B32)],
+            ),
+          ),
+          child: Obx(() {
+            if (controller.leaderboardUsers.isEmpty) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            return ListView.builder(
+              padding: const EdgeInsets.all(12),
+              itemCount: controller.leaderboardUsers.length,
+              itemBuilder: (context, index) {
+                final user = controller.leaderboardUsers[index];
+                final isCurrentUser = user.id == 'user_1';
+                return _LeaderboardTile(
+                  user: user,
+                  rank: index + 1,
+                  isCurrentUser: isCurrentUser,
+                );
+              },
+            );
+          }),
+        ),
+      );
+    });
   }
 }
 
