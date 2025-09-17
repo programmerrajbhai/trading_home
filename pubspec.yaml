@@ -39,6 +39,7 @@ dependencies:
   google_fonts: ^6.2.1
   curved_navigation_bar: ^1.0.3
   intl: any
+  http:
 
 
   shared_preferences: ^2.2.3

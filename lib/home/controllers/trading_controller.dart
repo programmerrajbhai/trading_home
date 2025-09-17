@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../candle_data.dart';
 import '../models/trade_model.dart';
 import '../utils/enums.dart';
+import '../models/leaderboard_user.dart';
 
 class TradingController extends GetxController {
   late SharedPreferences _prefs;
@@ -40,6 +41,9 @@ class TradingController extends GetxController {
 
   final Rx<ChartType> selectedChartType = ChartType.candlestick.obs;
 
+  final RxList<LeaderboardUser> leaderboardUsers = <LeaderboardUser>[].obs;
+  late LeaderboardUser _currentUser;
+
   List<Trade> get combinedTradeList {
     final list = [...runningTrades, ...tradeHistory];
     list.sort((a, b) => b.entryTime.compareTo(a.entryTime));
@@ -62,16 +66,53 @@ class TradingController extends GetxController {
   Future<void> _loadData() async {
     _prefs = await SharedPreferences.getInstance();
     liveBalance.value = _prefs.getDouble('liveBalance') ?? 1000.00;
-    demoBalance.value = _prefs.getDouble('demoBalance') ?? 10000.00;
+
+    final savedLeaderboard = _prefs.getStringList('leaderboardUsers') ?? [];
+    if (savedLeaderboard.isEmpty) {
+      _initializeLeaderboard();
+    } else {
+      leaderboardUsers.value = savedLeaderboard.map((json) {
+        final data = jsonDecode(json);
+        // pnl value is not stored directly, so we need to initialize it
+        return LeaderboardUser(
+          id: data['id'],
+          name: data['name'],
+          balance: data['balance'],
+        );
+      }).toList();
+    }
+
+    _currentUser = leaderboardUsers.firstWhereOrNull((user) => user.id == 'user_1') ??
+        LeaderboardUser(id: 'user_1', name: 'You', balance: 10000.00);
+    demoBalance.value = _currentUser.balance;
     isLiveAccount.value = _prefs.getBool('isLiveAccount') ?? false;
 
     List<String> historyJson = _prefs.getStringList('tradeHistory') ?? [];
     tradeHistory.value = historyJson.map((json) => Trade.fromJson(jsonDecode(json))).toList();
   }
 
+  void _initializeLeaderboard() {
+    leaderboardUsers.add(LeaderboardUser(id: 'user_1', name: 'You', balance: 10000.00));
+    leaderboardUsers.add(LeaderboardUser(id: 'user_2', name: 'Raj', balance: 12500.00, initialBalance: 10000.00));
+    leaderboardUsers.add(LeaderboardUser(id: 'user_3', name: 'Jony', balance: 9800.00, initialBalance: 10000.00));
+    leaderboardUsers.add(LeaderboardUser(id: 'user_4', name: 'Sumon', balance: 8500.00, initialBalance: 10000.00));
+    _saveLeaderboard();
+  }
+
+  Future<void> _saveLeaderboard() async {
+    final leaderboardJson = leaderboardUsers.map((user) => jsonEncode(user.toJson())).toList();
+    await _prefs.setStringList('leaderboardUsers', leaderboardJson);
+  }
+
   Future<void> _saveData() async {
     await _prefs.setDouble('liveBalance', liveBalance.value);
-    await _prefs.setDouble('demoBalance', demoBalance.value);
+
+    // Update pnl for current user
+    _currentUser.balance = demoBalance.value;
+    _currentUser.pnl.value = demoBalance.value - 10000.00;
+
+    _saveLeaderboard();
+
     await _prefs.setBool('isLiveAccount', isLiveAccount.value);
 
     List<String> historyJson = tradeHistory.map((trade) => jsonEncode(trade.toJson())).toList();
@@ -339,10 +380,23 @@ class TradingController extends GetxController {
     _saveData();
   }
 
+  void sortLeaderboard() {
+    leaderboardUsers.sort((a, b) => b.balance.compareTo(a.balance));
+  }
+
   @override
   void onClose() {
     _candleTimer?.cancel();
     _liveUpdateTimer?.cancel();
     super.onClose();
   }
+}
+
+extension on LeaderboardUser {
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'name': name,
+    'balance': balance,
+    'pnl': pnl.value,
+  };
 }

@@ -8,6 +8,7 @@ import 'widgets/timeframe_selector.dart';
 import 'widgets/trade_control_panel.dart';
 import 'chert.dart';
 import 'controllers/trading_controller.dart';
+import 'ui/leaderboard_screen.dart'; // <--- নতুন ইম্পোর্ট
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
@@ -31,7 +32,7 @@ class HomePage extends StatelessWidget {
               TopBar(),
               TimeframeSelector(),
               Expanded(
-                // *** পরিবর্তন: Obx সরিয়ে কন্ট্রোলার پاس করা হয়েছে ***
+                // *** পরিবর্তন: Obx সরিয়ে কন্ট্রোলার পাস করা হয়েছে ***
                 child: CandlestickChart(
                   controller: controller,
                 ),
@@ -95,6 +96,13 @@ class TopBar extends StatelessWidget {
               )),
             ),
           ),
+
+          // <--- লিডারবোর্ড আইকন যুক্ত করা হলো --->
+          IconButton(
+            icon: const Icon(Icons.leaderboard, color: Colors.white),
+            onPressed: () => Get.to(() => const LeaderboardScreen()),
+          ),
+
           IconButton(
             icon: const Icon(Icons.history, color: Colors.white),
             onPressed: () => Get.to(() => const TradeHistoryScreen()),
