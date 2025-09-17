@@ -7,15 +7,11 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../candle_data.dart';
-import '../chert.dart';
 import '../models/trade_model.dart';
 import '../utils/enums.dart';
 
 class TradingController extends GetxController {
   late SharedPreferences _prefs;
-
-  final GlobalKey<CandlestickChartState> chartKey =
-  GlobalKey<CandlestickChartState>();
 
   final Map<Asset, RxList<CandleData>> _assetCandles = {};
   final Rx<Asset> selectedAsset = Asset.eurusd.obs;
@@ -53,7 +49,7 @@ class TradingController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    _loadData(); // onInit এর শুরুতে ডেটা লোড করা হচ্ছে
+    _loadData();
     _initAssets();
     _startCandleGeneration();
     _aggregateCandles();
@@ -63,7 +59,6 @@ class TradingController extends GetxController {
     });
   }
 
-  // SharedPreferences থেকে ডেটা লোড করার মেথড
   Future<void> _loadData() async {
     _prefs = await SharedPreferences.getInstance();
     liveBalance.value = _prefs.getDouble('liveBalance') ?? 1000.00;
@@ -74,7 +69,6 @@ class TradingController extends GetxController {
     tradeHistory.value = historyJson.map((json) => Trade.fromJson(jsonDecode(json))).toList();
   }
 
-  // SharedPreferences-এ ডেটা সেভ করার মেথড
   Future<void> _saveData() async {
     await _prefs.setDouble('liveBalance', liveBalance.value);
     await _prefs.setDouble('demoBalance', demoBalance.value);
@@ -120,25 +114,40 @@ class TradingController extends GetxController {
   }
 
   void _startCandleGeneration() {
-    _candleTimer = Timer.periodic(const Duration(minutes: 1), (timer) {
-      _liveUpdateTimer?.cancel();
-      for (final asset in Asset.values) {
-        if (_assetCandles[asset]!.isNotEmpty) {
-          final lastCandle = _assetCandles[asset]!.last;
-          final newCandle = CandleData(
-            timestamp: DateTime.now().millisecondsSinceEpoch,
-            open: lastCandle.close,
-            high: lastCandle.close,
-            low: lastCandle.close,
-            close: lastCandle.close,
-          );
-          _assetCandles[asset]!.add(newCandle);
-        }
-      }
+    _candleTimer?.cancel();
+    final now = DateTime.now();
+    final secondsUntilNextMinute = 60 - now.second;
+
+    Future.delayed(Duration(seconds: secondsUntilNextMinute), () {
+      _addNewCandleToAssets();
       _startLiveCandleUpdate();
+
+      _candleTimer = Timer.periodic(const Duration(minutes: 1), (timer) {
+        _liveUpdateTimer?.cancel();
+        _addNewCandleToAssets();
+        _startLiveCandleUpdate();
+      });
     });
+
     _startLiveCandleUpdate();
   }
+
+  void _addNewCandleToAssets() {
+    for (final asset in Asset.values) {
+      if (_assetCandles[asset]!.isNotEmpty) {
+        final lastCandle = _assetCandles[asset]!.last;
+        final newCandle = CandleData(
+          timestamp: DateTime.now().millisecondsSinceEpoch,
+          open: lastCandle.close,
+          high: lastCandle.close,
+          low: lastCandle.close,
+          close: lastCandle.close,
+        );
+        _assetCandles[asset]!.add(newCandle);
+      }
+    }
+  }
+
 
   void _startLiveCandleUpdate() {
     _liveUpdateTimer =
@@ -206,8 +215,8 @@ class TradingController extends GetxController {
         low: currentCandleChunk.map((c) => c.low).reduce(min),
       ));
     }
+
     displayedCandles.value = aggregated;
-    _scrollToEnd();
   }
 
   void placeTrade(TradeDirection direction) {
@@ -219,12 +228,13 @@ class TradingController extends GetxController {
           backgroundColor: Colors.red, colorText: Colors.white);
       return;
     }
-    if (isLiveAccount.value)
+    if (isLiveAccount.value) {
       liveBalance.value -= amount;
-    else
+    } else {
       demoBalance.value -= amount;
+    }
 
-    _saveData(); // ব্যালেন্স পরিবর্তনের পর ডেটা সেভ করা হচ্ছে
+    _saveData();
 
     final now = DateTime.now();
     runningTrades.add(Trade(
@@ -270,20 +280,22 @@ class TradingController extends GetxController {
     if (trade.closePrice == trade.entryPrice) {
       trade.status = TradeStatus.draw;
       trade.pnl = 0.0;
-      if (isLiveAccount.value)
+      if (isLiveAccount.value) {
         liveBalance.value += trade.amount;
-      else
+      } else {
         demoBalance.value += trade.amount;
+      }
       message = "Trade ended: Draw! Your investment was returned.";
       color = Colors.grey;
     } else if (isWin) {
       trade.status = TradeStatus.won;
       final payout = trade.amount * payoutPercentage;
       trade.pnl = payout;
-      if (isLiveAccount.value)
+      if (isLiveAccount.value) {
         liveBalance.value += (trade.amount + payout);
-      else
+      } else {
         demoBalance.value += (trade.amount + payout);
+      }
       message =
       "Trade ended: Won! You won \$${payout.toStringAsFixed(2)}.";
       color = Colors.green;
@@ -295,13 +307,9 @@ class TradingController extends GetxController {
     }
     runningTrades.remove(trade);
     tradeHistory.insert(0, trade);
-    _saveData(); // ট্রেড শেষ হওয়ার পর ডেটা সেভ করা হচ্ছে
+    _saveData();
     Get.snackbar("Trade Result", message,
         backgroundColor: color, colorText: Colors.white);
-  }
-
-  void _scrollToEnd() {
-    chartKey.currentState?.scrollToEnd();
   }
 
   void changeAsset(Asset asset) {
@@ -328,7 +336,7 @@ class TradingController extends GetxController {
 
   void switchAccount(bool toLive) {
     isLiveAccount.value = toLive;
-    _saveData(); // অ্যাকাউন্ট পরিবর্তনের পর ডেটা সেভ করা হচ্ছে
+    _saveData();
   }
 
   @override

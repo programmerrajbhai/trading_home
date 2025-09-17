@@ -31,15 +31,9 @@ class HomePage extends StatelessWidget {
               TopBar(),
               TimeframeSelector(),
               Expanded(
-                child: Obx(
-                      () => CandlestickChart(
-                    key: controller.chartKey,
-                    candles: controller.displayedCandles,
-                    runningTrades: controller.runningTrades,
-                    candleTimeRemaining: controller.candleTimeRemaining.value,
-                    selectedTimeframe: controller.selectedTimeframe.value,
-                    selectedChartType: controller.selectedChartType.value,
-                  ),
+                // *** পরিবর্তন: Obx সরিয়ে কন্ট্রোলার پاس করা হয়েছে ***
+                child: CandlestickChart(
+                  controller: controller,
                 ),
               ),
               TradeControlPanel(),

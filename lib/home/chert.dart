@@ -1,26 +1,22 @@
+// lib/home/chert.dart
+
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:trading_home/home/utils/enums.dart';
 import 'dart:math' show max, min;
 import 'package:intl/intl.dart';
 import 'dart:ui' as ui;
 
 import 'candle_data.dart';
+import 'controllers/trading_controller.dart';
 import 'models/trade_model.dart';
 
 class CandlestickChart extends StatefulWidget {
-  final List<CandleData> candles;
-  final List<Trade> runningTrades;
-  final int candleTimeRemaining;
-  final Timeframe selectedTimeframe;
-  final ChartType selectedChartType; // নতুন প্যারামিটার
+  final TradingController controller;
 
   const CandlestickChart({
     super.key,
-    required this.candles,
-    required this.runningTrades,
-    required this.candleTimeRemaining,
-    required this.selectedTimeframe,
-    required this.selectedChartType, // নতুন প্যারামিটার
+    required this.controller,
   });
 
   @override
@@ -31,18 +27,56 @@ class CandlestickChartState extends State<CandlestickChart> {
   double _scale = 1.0;
   double _horizontalOffset = 0.0;
   Offset? _dragStartPosition;
+  double _initialScale = 1.0;
+  bool _showScrollToEndButton = false;
 
   @override
   void initState() {
     super.initState();
+    // Listen to changes in the controller's data and trigger a rebuild
+    widget.controller.displayedCandles.listen((_) {
+      if (mounted) {
+        setState(() {});
+      }
+    });
+
     WidgetsBinding.instance.addPostFrameCallback((_) => scrollToEnd(animate: false));
   }
 
   @override
   void didUpdateWidget(covariant CandlestickChart oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.candles.length > oldWidget.candles.length) {
-      scrollToEnd();
+
+    // *** FIX: Defer size-dependent logic until after the frame is built ***
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return; // Ensure the widget is still in the tree
+
+      bool shouldAutoScroll = _isAtEnd();
+      if (widget.controller.displayedCandles.length >
+          oldWidget.controller.displayedCandles.length &&
+          shouldAutoScroll) {
+        scrollToEnd();
+      }
+      _updateScrollButtonVisibility();
+    });
+  }
+
+  bool _isAtEnd() {
+    if (!mounted || context.size == null) return true;
+    final double candleWidth = 10.0 * _scale;
+    final double spacing = 5.0 * _scale;
+    final double contentWidth = widget.controller.displayedCandles.length * (candleWidth + spacing);
+    final double maxOffset = (contentWidth - context.size!.width).clamp(0.0, double.infinity);
+    return (maxOffset - _horizontalOffset).abs() < (candleWidth + spacing);
+  }
+
+  void _updateScrollButtonVisibility() {
+    if (!mounted) return;
+    final bool shouldShow = !_isAtEnd();
+    if (_showScrollToEndButton != shouldShow) {
+      setState(() {
+        _showScrollToEndButton = shouldShow;
+      });
     }
   }
 
@@ -50,53 +84,87 @@ class CandlestickChartState extends State<CandlestickChart> {
     if (!mounted || context.size == null) return;
     final double candleWidth = 10.0 * _scale;
     final double spacing = 5.0 * _scale;
-    final double contentWidth = widget.candles.length * (candleWidth + spacing);
-    final double maxOffset = contentWidth - context.size!.width;
+    final double contentWidth = widget.controller.displayedCandles.length * (candleWidth + spacing);
+    final double maxOffset = (contentWidth - context.size!.width).clamp(0.0, double.infinity);
     setState(() {
-      _horizontalOffset = maxOffset.clamp(0.0, double.infinity);
+      _horizontalOffset = maxOffset;
+      _showScrollToEndButton = false;
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    if (widget.candles.isEmpty) {
+    final controller = widget.controller;
+    final candles = controller.displayedCandles;
+
+    if (candles.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }
 
-    return GestureDetector(
-      onScaleStart: (details) {
-        _dragStartPosition = details.localFocalPoint;
-      },
-      onScaleUpdate: (details) {
-        setState(() {
-          if (details.scale == 1.0 && _dragStartPosition != null) {
-            final dx = details.localFocalPoint.dx - _dragStartPosition!.dx;
-            _horizontalOffset -= dx;
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        GestureDetector(
+          onScaleStart: (details) {
             _dragStartPosition = details.localFocalPoint;
-          } else if (details.scale != 1.0) {
-            final newScale = (_scale * details.scale).clamp(0.2, 5.0);
-            final focalPoint = details.localFocalPoint.dx;
-            final worldFocalX = (_horizontalOffset + focalPoint) / _scale;
-            _horizontalOffset = (worldFocalX * newScale) - focalPoint;
-            _scale = newScale;
-          }
-        });
-      },
-      onScaleEnd: (details) {
-        _dragStartPosition = null;
-      },
-      child: CustomPaint(
-        painter: _CandlestickPainter(
-          candles: widget.candles,
-          scale: _scale,
-          horizontalOffset: _horizontalOffset,
-          runningTrades: widget.runningTrades,
-          candleTimeRemaining: widget.candleTimeRemaining,
-          selectedTimeframe: widget.selectedTimeframe,
-          chartType: widget.selectedChartType, // নতুন প্যারামিটার পাস করুন
+            _initialScale = _scale;
+          },
+          onScaleUpdate: (details) {
+            setState(() {
+              final double candleWidth = 10.0 * _scale;
+              final double spacing = 5.0 * _scale;
+              final double itemWidth = candleWidth + spacing;
+              final double contentWidth = candles.length * itemWidth;
+              final double maxOffset = (contentWidth - (context.size?.width ?? 0)).clamp(0.0, double.infinity);
+
+              if (details.scale == 1.0 && _dragStartPosition != null) {
+                final dx = details.localFocalPoint.dx - _dragStartPosition!.dx;
+                _horizontalOffset = (_horizontalOffset - dx).clamp(0.0, maxOffset);
+                _dragStartPosition = details.localFocalPoint;
+              } else if (details.scale != 1.0 && _dragStartPosition != null) {
+                final newScale = (_initialScale * details.scale).clamp(0.2, 5.0);
+                final focalPoint = details.localFocalPoint.dx;
+                final worldFocalX = (_horizontalOffset + focalPoint) / _scale;
+
+                final newCandleWidth = 10.0 * newScale;
+                final newSpacing = 5.0 * newScale;
+                final newContentWidth = candles.length * (newCandleWidth + newSpacing);
+                final newMaxOffset = (newContentWidth - (context.size?.width ?? 0)).clamp(0.0, double.infinity);
+
+                _horizontalOffset = ((worldFocalX * newScale) - focalPoint).clamp(0.0, newMaxOffset);
+                _scale = newScale;
+              }
+            });
+            _updateScrollButtonVisibility();
+          },
+          onScaleEnd: (details) {
+            _dragStartPosition = null;
+          },
+          child: Obx(() => CustomPaint(
+            painter: _CandlestickPainter(
+              candles: candles,
+              scale: _scale,
+              horizontalOffset: _horizontalOffset,
+              runningTrades: controller.runningTrades,
+              candleTimeRemaining: controller.candleTimeRemaining.value,
+              selectedTimeframe: controller.selectedTimeframe.value,
+              chartType: controller.selectedChartType.value,
+            ),
+            size: Size.infinite,
+          )),
         ),
-        size: Size.infinite,
-      ),
+        if (_showScrollToEndButton)
+          Positioned(
+            right: 70,
+            bottom: 25,
+            child: FloatingActionButton(
+              mini: true,
+              onPressed: () => scrollToEnd(),
+              backgroundColor: Colors.blueGrey.withOpacity(0.7),
+              child: const Icon(Icons.arrow_forward, size: 20),
+            ),
+          ),
+      ],
     );
   }
 }
@@ -108,7 +176,7 @@ class _CandlestickPainter extends CustomPainter {
   final List<Trade> runningTrades;
   final int candleTimeRemaining;
   final Timeframe selectedTimeframe;
-  final ChartType chartType; // নতুন প্রপার্টি
+  final ChartType chartType;
 
   _CandlestickPainter({
     required this.candles,
@@ -117,7 +185,7 @@ class _CandlestickPainter extends CustomPainter {
     required this.runningTrades,
     required this.candleTimeRemaining,
     required this.selectedTimeframe,
-    required this.chartType, // নতুন প্রপার্টি
+    required this.chartType,
   });
 
   @override
@@ -146,7 +214,6 @@ class _CandlestickPainter extends CustomPainter {
       return size.height - ((price - minY) / (maxY - minY)) * size.height;
     }
 
-    // চার্টের ধরন অনুযায়ী আঁকার জন্য switch স্টেটমেন্ট ব্যবহার করুন
     switch (chartType) {
       case ChartType.candlestick:
         _drawCandlestickChart(canvas, size, visibleCandles, firstVisibleIndex,
@@ -162,7 +229,6 @@ class _CandlestickPainter extends CustomPainter {
         break;
     }
 
-    // Draw Current Price Line
     if (candles.isNotEmpty) {
       final lastClose = candles.last.close;
       final currentY = getY(lastClose);
@@ -174,7 +240,6 @@ class _CandlestickPainter extends CustomPainter {
       _drawText(canvas, lastClose.toStringAsFixed(4), Offset(size.width - priceLabelWidth, currentY - 8), Colors.white, 12, backgroundColor: linePaint.color);
     }
 
-    // Draw Candle Countdown Timer
     if (candleTimeRemaining > 0 && candles.isNotEmpty) {
       final lastCandle = candles.last;
       final double x = ((candles.length - 1) * itemWidth) - horizontalOffset + candleWidth/2;
@@ -198,11 +263,8 @@ class _CandlestickPainter extends CustomPainter {
       textPainter.paint(canvas, Offset(x - textPainter.width/2, y));
     }
 
-    // Draw Price Axis and Time Axis
     _drawPriceAxis(canvas, size, minY, maxY, getY, priceLabelWidth);
     _drawTimeAxis(canvas, size, firstVisibleIndex, lastVisibleIndex, itemWidth, horizontalOffset, candles);
-
-    // Draw Running Trades
     _drawRunningTrades(canvas, size, getY, priceLabelWidth, itemWidth, candleDurationMs);
   }
 
@@ -280,21 +342,18 @@ class _CandlestickPainter extends CustomPainter {
         ..color = isBullish ? Colors.green : Colors.red
         ..strokeWidth = 1.5;
 
-      // High-low line
       canvas.drawLine(
         Offset(x + candleWidth / 2, getY(candle.high)),
         Offset(x + candleWidth / 2, getY(candle.low)),
         paint,
       );
 
-      // Open tick
       canvas.drawLine(
         Offset(x, getY(candle.open)),
         Offset(x + candleWidth / 2, getY(candle.open)),
         paint,
       );
 
-      // Close tick
       canvas.drawLine(
         Offset(x + candleWidth / 2, getY(candle.close)),
         Offset(x + candleWidth, getY(candle.close)),
@@ -406,7 +465,7 @@ class _CandlestickPainter extends CustomPainter {
     )..layout();
     textPainter.paint(canvas, position);
   }
-  ///
+
   void _drawDashedLine(Canvas canvas, Offset start, Offset end, Paint paint, double dashWidth, double dashSpace) {
     double distance = (end - start).distance;
     final double dashCount = (distance / (dashWidth + dashSpace)).floor().toDouble();
